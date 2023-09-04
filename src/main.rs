@@ -2,6 +2,7 @@ use actix_web::web::Redirect;
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 use serde::ser::{SerializeStruct, Serializer};
 use serde::Serialize;
+use std::fmt::Display;
 
 struct Person {
     id: i32,
@@ -20,6 +21,20 @@ impl Serialize for Person {
         state.serialize_field("name", &self.name)?;
         state.serialize_field("age", &self.age)?;
         state.end()
+    }
+}
+
+impl Display for Person {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let serialized = serde_json::to_string_pretty(&self);
+        match serialized {
+            Ok(serialized_person) => write!(f, "{}", &serialized_person),
+            Err(e) => write!(
+                f,
+                "id: {}, name: {}, age: {}",
+                &self.id, &self.name, &self.age
+            ),
+        }
     }
 }
 
@@ -68,10 +83,7 @@ async fn echo(path: web::Path<String>) -> impl Responder {
         Ok(n) => {
             let found_person = get_person_by_id(n);
             match found_person {
-                Some(x) => {
-                    let serialized = serde_json::to_string_pretty(&x).unwrap();
-                    HttpResponse::Ok().body(serialized)
-                }
+                Some(x) => HttpResponse::Ok().body(x.to_string()),
                 // Handle Person not found.
                 None => {
                     return HttpResponse::NotFound()
