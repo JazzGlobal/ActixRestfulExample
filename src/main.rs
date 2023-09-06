@@ -1,44 +1,11 @@
 use actix_web::web::Redirect;
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
-use serde::ser::{SerializeStruct, Serializer};
-use serde::Serialize;
-use std::fmt::Display;
+use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
 
-struct Person {
-    id: i32,
-    name: String,
-    age: i32,
-}
+use crate::person::Person;
 
-impl Serialize for Person {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        // 3 is the number of fields in the struct.
-        let mut state = serializer.serialize_struct("Person", 3)?;
-        state.serialize_field("id", &self.id)?;
-        state.serialize_field("name", &self.name)?;
-        state.serialize_field("age", &self.age)?;
-        state.end()
-    }
-}
+mod person;
 
-impl Display for Person {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let serialized = serde_json::to_string_pretty(&self);
-        match serialized {
-            Ok(serialized_person) => write!(f, "{}", &serialized_person),
-            Err(e) => write!(
-                f,
-                "id: {}, name: {}, age: {}",
-                &self.id, &self.name, &self.age
-            ),
-        }
-    }
-}
-
-// Mock our data source -- This is also a repository call Mock.
+// Mock our data source -- This also works as a repository call Mock.
 fn get_person_list() -> Vec<Person> {
     let person1 = Person {
         id: 1,
@@ -64,7 +31,7 @@ fn get_person_by_id(id: i32) -> Option<Person> {
 }
 
 #[get("/person")]
-async fn person() -> impl Responder {
+async fn person_endpoint() -> impl Responder {
     let person_list = get_person_list();
 
     let serialized = serde_json::to_string_pretty(&person_list).unwrap();
@@ -84,16 +51,16 @@ async fn echo(path: web::Path<String>) -> impl Responder {
             let found_person = get_person_by_id(n);
             match found_person {
                 Some(x) => HttpResponse::Ok().body(x.to_string()),
-                // Handle Person not found.
+                // Handle person not found.
                 None => {
                     return HttpResponse::NotFound()
-                        .body(String::from("Did not find Person with given id."))
+                        .body(String::from("Did not find person with given id."))
                 }
             }
         }
         // Generic handling of invalid i32 parsing.
-        Err(e) => HttpResponse::InternalServerError()
-            .body(String::from("Failed to parse Person.Id argument.")),
+        Err(_e) => HttpResponse::InternalServerError()
+            .body(String::from("Failed to parse person.Id argument.")),
     }
 }
 
@@ -101,7 +68,7 @@ async fn echo(path: web::Path<String>) -> impl Responder {
 async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
         App::new()
-            .service(person)
+            .service(person_endpoint)
             .service(echo)
             .service(person_redirect)
     })
